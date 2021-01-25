@@ -1,3 +1,5 @@
+![title](https://raw.githubusercontent.com/ESA-PhiLab/OST_Notebooks/master/auxiliary/header_image.PNG)
+
 # damage_proxy_map
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
