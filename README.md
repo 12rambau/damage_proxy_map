@@ -9,7 +9,7 @@ Automatically produce Damage Proxy Maps based on Coherence Change Detection.
 
 This notebook provides a template for the creation of Damage Proxy Maps as proposed by Tay et al. 2020.
 
-##Requirements
+## Requirements
 
 - a PC/Mac with at least 16GB of RAM
 - about 150GB of free disk space
