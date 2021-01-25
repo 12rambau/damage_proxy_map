@@ -1,7 +1,4 @@
-![title](https://raw.githubusercontent.com/ESA-PhiLab/OST_Notebooks/master/auxiliary/header_image.PNG)
-
-# damage proxy map
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+<img src="https://raw.githubusercontent.com/ESA-PhiLab/OST_Notebooks/master/auxiliary/header_image.PNG" height="200px">
 
 Automatically produce Damage Proxy Maps based on Coherence Change Detection.
 
