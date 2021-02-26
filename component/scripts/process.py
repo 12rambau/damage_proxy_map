@@ -1,7 +1,11 @@
 import os 
 import re
+import time
+
 from datetime import datetime as dt
 from datetime import timedelta
+from pathlib import Path
+from zipfile import ZipFile
 
 import numpy as np
 import pyproj
@@ -34,7 +38,7 @@ def check_computer_size(output):
         
     return
 
-def create_dmp(aoi_io, io, output):
+def create_dmp(io, output):
     
     # create start date from 60 days before
     event_date = dt.strptime(io.event, '%Y-%m-%d')
@@ -44,7 +48,8 @@ def create_dmp(aoi_io, io, output):
     output.add_live_msg(' Setting up project')
     s1_slc = Sentinel1Batch(
         project_dir=pm.project_dir,
-        aoi = geemap.ee_to_json(aoi.get_aoi_ee()),
+        #aoi = geemap.ee_to_json(aoi.get_aoi_ee()),
+        aoi = io.file,
         start = start,
         end = end,
         product_type='SLC',
@@ -52,13 +57,18 @@ def create_dmp(aoi_io, io, output):
     )
 
     # get username and password
-    s1_slc.scihub_uname = io.username
-    s1_slc.scihub_pword = io.password 
+    if io.username and io.password:
+        s1_slc.scihub_uname = io.username
+        s1_slc.scihub_pword = io.password 
+    else:
+        from ost.helpers.settings import HERBERT_USER
+        s1_slc.scihub_uname = HERBERT_USER['uname']
+        s1_slc.scihub_pword = HERBERT_USER['pword']
 
-    output.add_live_msg(' Search for data')
-    #s1_slc.search(base_url='https://scihub.copernicus.eu/dhus/')
-    s1_slc.inventory_file = s1_slc.inventory_dir.joinpath('full.inventory.gpkg')
-    s1_slc.read_inventory() 
+    output.add_live_msg(' Searching for data')
+    s1_slc.search(base_url='https://scihub.copernicus.eu/dhus/')
+    #s1_slc.inventory_file = s1_slc.inventory_dir.joinpath('full.inventory.gpkg')
+    #s1_slc.read_inventory() 
 
     for i, track in enumerate(s1_slc.inventory.relativeorbit.unique()):
         # filter by track
@@ -112,51 +122,52 @@ def create_dmp(aoi_io, io, output):
                 ]
             )
 
-    output.add_live_msg(' Downloading S1 scenes')
-    s1_slc.download(final_df, mirror=1, concurrent=2, uname=s1_slc.scihub_uname, pword=s1_slc.scihub_pword)
-    output.add_live_msg(' Create burst inventory')
-    s1_slc.create_burst_inventory(final_df)
+        output.add_live_msg(' Downloading relevant Sentinel-1 scenes')
+        s1_slc.download(final_df, mirror=1, concurrent=2, uname=s1_slc.scihub_uname, pword=s1_slc.scihub_pword)
+        output.add_live_msg(' Create burst inventory')
+        s1_slc.create_burst_inventory(final_df)
 
-    # setting ARD parameters
-    s1_slc.ard_parameters['single_ARD']['resolution'] = 30 # in metres
-    s1_slc.ard_parameters['single_ARD']['create_ls_mask'] = False
-    s1_slc.ard_parameters['single_ARD']['backscatter'] = False
-    s1_slc.ard_parameters['single_ARD']['coherence'] = True
-    s1_slc.ard_parameters['single_ARD']['coherence_bands'] = 'VV'  # 'VV, VH'
+        # setting ARD parameters
+        output.add_live_msg(' Setting processing parameters')
+        s1_slc.ard_parameters['single_ARD']['resolution'] = 30 # in metres
+        s1_slc.ard_parameters['single_ARD']['create_ls_mask'] = False
+        s1_slc.ard_parameters['single_ARD']['backscatter'] = False
+        s1_slc.ard_parameters['single_ARD']['coherence'] = True
+        s1_slc.ard_parameters['single_ARD']['coherence_bands'] = 'VV'  # 'VV, VH'
 
-    # production of polarimetric layers
-    s1_slc.ard_parameters['single_ARD']['H-A-Alpha'] = False # does not give a lot of additional information
+        # production of polarimetric layers
+        s1_slc.ard_parameters['single_ARD']['H-A-Alpha'] = False # does not give a lot of additional information
 
-    # resampling of image (not so important)
-    s1_slc.ard_parameters['single_ARD']['dem']['image_resampling'] = 'BICUBIC_INTERPOLATION'  # 'BILINEAR_INTERPOLATION'
+        # resampling of image (not so important)
+        s1_slc.ard_parameters['single_ARD']['dem']['image_resampling'] = 'BICUBIC_INTERPOLATION'  # 'BILINEAR_INTERPOLATION'
 
-    # multi-temporal speckle filtering is quite effective
-    s1_slc.ard_parameters['time-series_ARD']['mt_speckle_filter']['filter'] = 'Boxcar'
-    s1_slc.ard_parameters['time-series_ARD']['remove_mt_speckle'] = True
-    s1_slc.ard_parameters['mosaic']['cut_to_aoi'] = True
+        # multi-temporal speckle filtering is quite effective
+        s1_slc.ard_parameters['time-series_ARD']['mt_speckle_filter']['filter'] = 'Boxcar'
+        s1_slc.ard_parameters['time-series_ARD']['remove_mt_speckle'] = True
+        s1_slc.ard_parameters['mosaic']['cut_to_aoi'] = True
 
-    # set tmp_dir
-    s1_slc.config_dict['temp_dir'] = str(pm.tmp_dir)
-    
-    #
-    workers = int(4) if os.cpu_count()/4 > 4 else int(os.cpu_count()/4)
-    output.add_live_msg(f' We process {workers} bursts in parallel.')
-    s1_slc.config_dict['max_workers'] = workers
-    s1_slc.config_dict['executor_type'] = 'concurrent_processes'
-    
-    # process
-    s1_slc.bursts_to_ards(
-        timeseries=True, 
-        timescan=False, 
-        mosaic=False,
-        overwrite=False
-    )
-    
-    if len(image_days) != 3:
-        raise Exception("Something went wrong")
-    else:
-        output.add_live_msg("calculate change and merge results")
-        for track in s1_slc.burst_inventory.Track.unique():
+        # set tmp_dir
+        s1_slc.config_dict['temp_dir'] = str(pm.tmp_dir)
+
+        #
+        workers = int(4) if os.cpu_count()/4 > 4 else int(os.cpu_count()/4)
+        output.add_live_msg(f' We process {workers} bursts in parallel.')
+        s1_slc.config_dict['max_workers'] = workers
+        s1_slc.config_dict['executor_type'] = 'concurrent_processes'
+
+        # process
+        output.add_live_msg("Processing... (this may take a while)")
+        s1_slc.bursts_to_ards(
+            timeseries=True, 
+            timescan=False, 
+            mosaic=False,
+            overwrite=False
+        )
+
+        if len(image_days) != 3:
+            raise Exception("Something went wrong")
+        else:
+            output.add_live_msg("calculate change and merge results")
             bursts = list(s1_slc.processing_dir.glob(f'[A,D]*{track}*'))
 
             # we create the CCD for each burst 
@@ -213,12 +224,13 @@ def create_dmp(aoi_io, io, output):
                 compress='lzw'
             )
 
+            tmp_dir = Path(s1_slc.config_dict['temp_dir'])
             tmp_mrg = tmp_dir.joinpath(f"ccd_{track_name}_{'_'.join(dates)}.tif")
             with rio.open(tmp_mrg, "w", **out_meta) as dest:
                 dest.write(mosaic)
 
             # crop to aoi (some ost routine)
-            with fiona.open(aoi, "r") as shapefile:
+            with fiona.open(io.file, "r") as shapefile:
                 shapes_ = [feature["geometry"] for feature in shapefile]
 
             with rio.open(tmp_mrg) as src:

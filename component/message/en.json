@@ -1,9 +1,9 @@
 {
     "app": {
-        "title": "Damage proxy module",
+        "title": "Damage Proxy Map",
         "drawer_item" : {
             "aoi": "AOI selector",
-            "process": "Process",
+            "process": "Input",
             "result": "Results",
             "about": "About"
         }
