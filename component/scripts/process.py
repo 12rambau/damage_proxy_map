@@ -286,12 +286,12 @@ def create_dmp(io, output):
                 "Legend: Damage Proxy Map\n",
                 "\t\t\t</name>\n",
                 "\t\t\t<Icon>\n",
-                "\t\t\t\t<href>https://lh3.googleusercontent.com/proxy/0QYnYWbKsb-k47JrKOlPt31FEaz6G-7vK0Mp4mY7seKpy1Am6XaOXhjECKvw1e02q48Af-R-dmySehL6mPAxlM05k46b0svPCXjJz3AGnSIj8vKYtCcD27ae</href>\n",
+                "\t\t\t\t<href>https://raw.githubusercontent.com/12rambau/damage_proxy_map/refactoring/component/message/legend.png</href>\n",
                 "\t\t\t</Icon>\n",
                 '\t\t\t<overlayXY x="0.98" y="0.14" xunits="fraction" yunits="fraction"/>\n',
                 '\t\t\t<screenXY x="0.98" y="0.14" xunits="fraction" yunits="fraction"/>\n',
                 '\t\t\t<rotationXY x="0.5" y="0.5" xunits="fraction" yunits="fraction"/>\n',
-                '\t\t\t<size x="0" y="0" xunits="fraction" yunits="fraction"/>\n',
+                '\t\t\t<size x="0.1" y="0.18" xunits="fraction" yunits="fraction"/>\n',
                 "\t\t</ScreenOverlay>\n",
                 "\t</Document>\n",
                 "</kml>\n"   
@@ -318,7 +318,7 @@ def create_dmp(io, output):
                        #create complete filepath of file in directory
                        filePath = os.path.join(folderName, filename)
                        # Add file to zip
-                       zip_ref.write(filePath, os.path.basename(filePath))
+                       zip_ref.write(filePath, os.path.join('/0/0/', os.path.basename(filePath)))
                     # -----------------------------------------
 
 
